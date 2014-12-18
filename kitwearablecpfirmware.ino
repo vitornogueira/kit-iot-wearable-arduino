@@ -7,6 +7,8 @@
  ****************************************************************/
 
 #include <SM.h>
+#include <Wire.h>
+#include <MMA7660.h>
 
 /****************************************************************
  * Constants and pins                                           *
@@ -19,29 +21,40 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER 1
+#define DEVICE_NUMBER 2
 
 /* Pins */
 #define LED_PIN 13
+#define ACCELEROMETER_INTERRUPT_PIN 7
 
 enum Device 
 {
+    ACCELEROMETER,
     LED
 };
 
 /* Device ID code for the bluetooth protocol */
 const char DEVICE_CODE[DEVICE_NUMBER][3] = 
 {
+    "AC", /* Accelerometer */
     "LE"  /* Led */
 };
 #define PROTOCOL_COMMAND_LENGHT 5
 #define PROTOCOL_DEVICE_CODE_LENGTH 2
+#define PROTOCOL_RESPONSE_LENGTH 7
 
-Pstate DEVICE_STATE[DEVICE_NUMBER + 1] = 
+Pstate DEVICE_STATE[DEVICE_NUMBER + 2] = 
 {
+    accelerometerState,
     ledState,
-    waitForCommandState  /* Must always be last */
+    waitForCommandState,  /* Must always come after device states */
+    sendValueState
 };
+
+/* Accelerometer axis */
+#define X_AXIS 0
+#define Y_AXIS 1
+#define Z_AXIS 2
 
 /****************************************************************
  * Function Prototypes                                          *
@@ -60,6 +73,7 @@ bool readyToReceiveProtocolCommand = true;
 char protocolCommandString[PROTOCOL_COMMAND_LENGHT + 1];
 char* protocolCommand;
 int protocolCommandArgument;
+char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
 
 /****************************************************************
  * Arduino main functions                                       *
@@ -79,6 +93,9 @@ void setup()
     delay(1100);
     sprintf(atCommand, "AT+PIN%s\n\r", BLUETOOTH_DEVICE_PIN);
     Serial1.print(atCommand);
+
+    /* Setup accelerometer */
+    MMA7660.init();
 
     pinMode(LED_PIN, OUTPUT);
 }
@@ -133,10 +150,58 @@ State waitForCommandState()
     return;    
 }
 
+State sendValueState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Send Value State");
+    #endif
+    #ifdef DEBUG
+        Serial.print("Debug: Sending value ");
+        Serial.print(protocolResponseValue);
+    #endif
+
+    Serial1.println(protocolResponseValue);
+    deviceStateMachine.Set(waitForCommandState);
+}
+
+State accelerometerState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Accelerometer State");
+    #endif
+
+    int x, y, z;
+
+    delay(100); /* Time for new values to come */
+
+    MMA7660.getValues(&x, &y, &z);
+
+    switch(protocolCommandArgument)
+    {
+        case X_AXIS:
+            sprintf(protocolResponseValue, "#%4d\n\r", x);
+            break;
+
+        case Y_AXIS:
+            sprintf(protocolResponseValue, "#%4d\n\r", y);
+            break;
+
+        case Z_AXIS:
+            sprintf(protocolResponseValue, "#%4d\n\r", z);
+            break;
+
+        default:
+            deviceStateMachine.Set(waitForCommandState);
+            return;
+    }
+
+    deviceStateMachine.Set(sendValueState);
+}
+
 State ledState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: LED state");
+        Serial.println("Debug Device State Machine: LED State");
     #endif
 
     if (protocolCommandArgument)
