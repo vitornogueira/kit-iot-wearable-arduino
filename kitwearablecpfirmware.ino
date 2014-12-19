@@ -21,32 +21,40 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER 2
+#define DEVICE_NUMBER 4
 
 /* Pins */
-#define LED_PIN 13
-#define ACCELEROMETER_INTERRUPT_PIN 7
+#define RED_RGB_LED_PIN              5
+#define GREEN_RGB_LED_PIN           13
+#define BLUE_RGB_LED_PIN             6
+#define ACCELEROMETER_INTERRUPT_PIN  7
 
 enum Device 
 {
     ACCELEROMETER,
-    LED
+    RED_RGB_LED,
+    GREEN_RGB_LED,
+    BLUE_RGB_LED,
 };
 
 /* Device ID code for the bluetooth protocol */
-const char DEVICE_CODE[DEVICE_NUMBER][3] = 
+#define PROTOCOL_REQUEST_LENGTH     5
+#define PROTOCOL_DEVICE_CODE_LENGTH 2
+#define PROTOCOL_RESPONSE_LENGTH    7
+const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] = 
 {
     "AC", /* Accelerometer */
-    "LE"  /* Led */
+    "LR", /* Red RGB Led */
+    "LG", /* Green RGB Led */
+    "LB"  /* Blue RGB Led */
 };
-#define PROTOCOL_COMMAND_LENGHT 5
-#define PROTOCOL_DEVICE_CODE_LENGTH 2
-#define PROTOCOL_RESPONSE_LENGTH 7
 
 Pstate DEVICE_STATE[DEVICE_NUMBER + 2] = 
 {
     accelerometerState,
-    ledState,
+    redRgbLedState,
+    greenRgbLedState,
+    blueRgbLedState,
     waitForCommandState,  /* Must always come after device states */
     sendValueState
 };
@@ -55,6 +63,10 @@ Pstate DEVICE_STATE[DEVICE_NUMBER + 2] =
 #define X_AXIS 0
 #define Y_AXIS 1
 #define Z_AXIS 2
+
+/* RGB LED boundary values */
+#define MIN_RGB_VALUE   0
+#define MAX_RGB_VALUE 255
 
 /****************************************************************
  * Function Prototypes                                          *
@@ -70,7 +82,7 @@ SM protocolStateMachine(sleepState);
 bool protocolCommandIsReady = false;
 bool readyToReceiveProtocolCommand = true;
 
-char protocolCommandString[PROTOCOL_COMMAND_LENGHT + 1];
+char protocolCommandString[PROTOCOL_REQUEST_LENGTH + 1];
 char* protocolCommand;
 int protocolCommandArgument;
 char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
@@ -97,7 +109,9 @@ void setup()
     /* Setup accelerometer */
     MMA7660.init();
 
-    pinMode(LED_PIN, OUTPUT);
+    pinMode(RED_RGB_LED_PIN, OUTPUT);
+    pinMode(GREEN_RGB_LED_PIN, OUTPUT);
+    pinMode(BLUE_RGB_LED_PIN, OUTPUT);
 }
 
 void loop()
@@ -138,6 +152,16 @@ State waitForCommandState()
 
     /* Parse command argument */
     protocolCommand += PROTOCOL_DEVICE_CODE_LENGTH;
+
+    for (int i = 0; i++; i < strlen(protocolCommand))
+    {
+        if (protocolCommand[i] < '0' || protocolCommand[i] > '9')
+        {
+            deviceStateMachine.Set(waitForCommandState);
+            readyToReceiveProtocolCommand = true;
+            return;
+        }
+    }
     protocolCommandArgument = atoi(protocolCommand);    
 
     #ifdef DEBUG
@@ -198,21 +222,45 @@ State accelerometerState()
     deviceStateMachine.Set(sendValueState);
 }
 
-State ledState()
+State redRgbLedState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: LED State");
+        Serial.println("Debug Device State Machine: Red RGB LED State");
     #endif
 
-    if (protocolCommandArgument)
+    if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
     {
-        digitalWrite(LED_PIN, HIGH);
-    }
-    else
-    {
-        digitalWrite(LED_PIN, LOW);
+        analogWrite(RED_RGB_LED_PIN, protocolCommandArgument);
     }
 
+    deviceStateMachine.Set(waitForCommandState);
+}
+
+State greenRgbLedState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Green RGB LED State");
+    #endif
+    
+    if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
+    {
+        analogWrite(GREEN_RGB_LED_PIN, protocolCommandArgument);
+    }
+    
+    deviceStateMachine.Set(waitForCommandState);
+}
+
+State blueRgbLedState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Blue RGB LED State");
+    #endif
+    
+    if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
+    {
+        analogWrite(BLUE_RGB_LED_PIN, protocolCommandArgument);
+    }
+    
     deviceStateMachine.Set(waitForCommandState);
 }
 
