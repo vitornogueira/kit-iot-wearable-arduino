@@ -21,7 +21,8 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER 7
+#define DEVICE_NUMBER     7
+#define NUMBER_OF_BUTTONS 2
 
 /* Pins */
 #define RED_RGB_LED_PIN              5
@@ -30,6 +31,8 @@ const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 #define ACCELEROMETER_INTERRUPT_PIN  7
 #define LIGHT_SENSOR_PIN            12
 #define BUZZER_PIN                  11
+#define BUTTON1_PIN                  4
+#define BUTTON2_PIN                 A1
 
 enum Device 
 {
@@ -57,7 +60,7 @@ const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] =
     "PM"  /* Play Mario Melody */
 };
 
-Pstate DEVICE_STATE[DEVICE_NUMBER + 2] = 
+Pstate DEVICE_STATE[DEVICE_NUMBER + 3] = 
 {
     accelerometerState,
     redRgbLedState,
@@ -67,8 +70,12 @@ Pstate DEVICE_STATE[DEVICE_NUMBER + 2] =
     buzzerState,
     playMelodyState,
     waitForCommandState,  /* Must always come after device states */
-    sendValueState
+    sendValueState,
+    processButtonState
 };
+
+const char BUTTON1_CODE[] = "B1"; /* Button 1 */
+const char BUTTON2_CODE[] = "B2"; /* Button 2 */
 
 /* Accelerometer axis */
 #define X_AXIS 0
@@ -185,6 +192,9 @@ char* protocolCommand;
 int protocolCommandArgument;
 char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
 
+int button1 = LOW;
+int button2 = LOW;
+
 /****************************************************************
  * Arduino main functions                                       *
  ****************************************************************/
@@ -212,6 +222,9 @@ void setup()
     pinMode(BLUE_RGB_LED_PIN, OUTPUT);
 
     pinMode(LIGHT_SENSOR_PIN, INPUT);
+
+    pinMode(BUTTON1_PIN, INPUT_PULLUP);
+    pinMode(BUTTON2_PIN, INPUT_PULLUP);
 }
 
 void loop()
@@ -228,7 +241,7 @@ State waitForCommandState()
 {
     char deviceCode[PROTOCOL_DEVICE_CODE_LENGTH + 1];
     
-    deviceStateMachine.Set(waitForCommandState);
+    deviceStateMachine.Set(processButtonState);
 
     if (!protocolCommandIsReady) return;
 
@@ -266,7 +279,7 @@ State waitForCommandState()
 
     if (!validArgument)
     {
-        deviceStateMachine.Set(waitForCommandState);
+        deviceStateMachine.Set(processButtonState);
         readyToReceiveProtocolCommand = true;
         return;
     }
@@ -295,6 +308,26 @@ State sendValueState()
 
     Serial1.println(protocolResponseValue);
     deviceStateMachine.Set(waitForCommandState);
+}
+
+State processButtonState()
+{
+    if (button1 != digitalRead(BUTTON1_PIN))
+    {
+        button1 = digitalRead(BUTTON1_PIN);
+        sprintf(protocolResponseValue, "#%s%2d\n\r", BUTTON1_CODE, !button1);
+        deviceStateMachine.Set(sendValueState);
+    }
+    else if (button2 != digitalRead(BUTTON2_PIN))
+    {
+        button2 = digitalRead(BUTTON2_PIN);
+        sprintf(protocolResponseValue, "#%s%2d\n\r", BUTTON2_CODE, !button2);
+        deviceStateMachine.Set(sendValueState);
+    }
+    else
+    {
+        deviceStateMachine.Set(waitForCommandState);
+    }
 }
 
 State accelerometerState()
