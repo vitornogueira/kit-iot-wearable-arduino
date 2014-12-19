@@ -21,13 +21,14 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER 4
+#define DEVICE_NUMBER 5
 
 /* Pins */
 #define RED_RGB_LED_PIN              5
 #define GREEN_RGB_LED_PIN           13
 #define BLUE_RGB_LED_PIN             6
 #define ACCELEROMETER_INTERRUPT_PIN  7
+#define LIGHT_SENSOR_PIN            12
 
 enum Device 
 {
@@ -35,6 +36,7 @@ enum Device
     RED_RGB_LED,
     GREEN_RGB_LED,
     BLUE_RGB_LED,
+    LIGHT_SENSOR
 };
 
 /* Device ID code for the bluetooth protocol */
@@ -46,7 +48,8 @@ const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] =
     "AC", /* Accelerometer */
     "LR", /* Red RGB Led */
     "LG", /* Green RGB Led */
-    "LB"  /* Blue RGB Led */
+    "LB", /* Blue RGB Led */
+    "LI"  /* Light sensor */
 };
 
 Pstate DEVICE_STATE[DEVICE_NUMBER + 2] = 
@@ -55,6 +58,7 @@ Pstate DEVICE_STATE[DEVICE_NUMBER + 2] =
     redRgbLedState,
     greenRgbLedState,
     blueRgbLedState,
+    lightSensorState,
     waitForCommandState,  /* Must always come after device states */
     sendValueState
 };
@@ -112,6 +116,8 @@ void setup()
     pinMode(RED_RGB_LED_PIN, OUTPUT);
     pinMode(GREEN_RGB_LED_PIN, OUTPUT);
     pinMode(BLUE_RGB_LED_PIN, OUTPUT);
+
+    pinMode(LIGHT_SENSOR_PIN, INPUT);
 }
 
 void loop()
@@ -262,6 +268,18 @@ State blueRgbLedState()
     }
     
     deviceStateMachine.Set(waitForCommandState);
+}
+
+State lightSensorState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Light Sensor State");
+    #endif
+
+    int lightSensorValue = analogRead(LIGHT_SENSOR_PIN);
+    sprintf(protocolResponseValue, "#%4d\n\r", lightSensorValue);
+
+    deviceStateMachine.Set(sendValueState);
 }
 
 /****************************************************************
