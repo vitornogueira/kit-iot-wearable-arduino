@@ -21,7 +21,7 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER 5
+#define DEVICE_NUMBER 7
 
 /* Pins */
 #define RED_RGB_LED_PIN              5
@@ -29,6 +29,7 @@ const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 #define BLUE_RGB_LED_PIN             6
 #define ACCELEROMETER_INTERRUPT_PIN  7
 #define LIGHT_SENSOR_PIN            12
+#define BUZZER_PIN                  11
 
 enum Device 
 {
@@ -36,11 +37,13 @@ enum Device
     RED_RGB_LED,
     GREEN_RGB_LED,
     BLUE_RGB_LED,
-    LIGHT_SENSOR
+    LIGHT_SENSOR,
+    BUZZER,
+    PLAY_MELODY
 };
 
 /* Device ID code for the bluetooth protocol */
-#define PROTOCOL_REQUEST_LENGTH     5
+#define PROTOCOL_REQUEST_LENGTH     6
 #define PROTOCOL_DEVICE_CODE_LENGTH 2
 #define PROTOCOL_RESPONSE_LENGTH    7
 const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] = 
@@ -49,7 +52,9 @@ const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] =
     "LR", /* Red RGB Led */
     "LG", /* Green RGB Led */
     "LB", /* Blue RGB Led */
-    "LI"  /* Light sensor */
+    "LI", /* Light sensor */
+    "BZ", /* Buzzer */
+    "PM"  /* Play Mario Melody */
 };
 
 Pstate DEVICE_STATE[DEVICE_NUMBER + 2] = 
@@ -59,6 +64,8 @@ Pstate DEVICE_STATE[DEVICE_NUMBER + 2] =
     greenRgbLedState,
     blueRgbLedState,
     lightSensorState,
+    buzzerState,
+    playMelodyState,
     waitForCommandState,  /* Must always come after device states */
     sendValueState
 };
@@ -72,9 +79,96 @@ Pstate DEVICE_STATE[DEVICE_NUMBER + 2] =
 #define MIN_RGB_VALUE   0
 #define MAX_RGB_VALUE 255
 
+#define MELODY_MAX_SIZE      100
+/* Melody codes */
+#define MARIO_THEME_SONG    6789
+#define CHRISTMAS_SONG_CODE 1234
+
+/****************************************************************
+ * Melodies                                                     *
+ ****************************************************************/
+
+int MARIO_THEME_SONG_MELODY[] = 
+{
+      2637, 2637, 0, 2637,
+      0, 2093, 2637, 0,
+      3136, 0, 0,  0,
+      1568, 0, 0, 0,
+             
+      2093, 0, 0, 1568,
+      0, 0, 1319, 0,
+      0, 1760, 0, 1976,
+      0, 1865, 1760, 0,
+                     
+      1568, 2637, 3136,
+      3520, 0, 2794, 3136,
+      0, 2637, 0, 2093,
+      2349, 1976, 0, 0,
+                            
+      2093, 0, 0, 1568,
+      0, 0, 1319, 0,
+      0, 1760, 0, 1976,
+      0, 1865, 1760, 0,
+                                       
+      1568, 2637, 3136,
+      3520, 0, 2794, 3136,
+      0, 2637, 0, 2093,
+      2349, 1976, 0, 0
+};
+int MARIO_THEME_SONG_SIZE = 78;
+int MARIO_THEME_SONG_TEMPO[] = 
+{
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+             
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+                
+      9, 9, 9,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+             
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+         
+      9, 9, 9,
+      12, 12, 12, 12,
+      12, 12, 12, 12,
+      12, 12, 12, 12
+};
+
+int CHRISTMAS_THEME_SONG_MELODY[] =
+{
+      147, 247, 220, 196, 
+      147, 147, 147, 147, 
+      247, 220, 196, 165, 
+      0, 165, 262, 247, 
+      220, 185, 0, 294, 
+      294, 262, 220, 247
+};
+int CHRISTMAS_THEME_SONG_SIZE = 24;
+int CHRISTMAS_THEME_SONG_TEMPO[] =
+{
+      4, 4, 4, 4, 
+      3, 8, 8, 4, 
+      4, 4, 4, 3, 
+      2, 4, 4, 4, 
+      4, 3, 2, 4, 
+      4, 4, 4, 1
+};
+
 /****************************************************************
  * Function Prototypes                                          *
  ****************************************************************/
+
+void playMelody(int melody[], int tempo[], int melodySize);
 
 /****************************************************************
  * Global variables                                             *
@@ -86,7 +180,7 @@ SM protocolStateMachine(sleepState);
 bool protocolCommandIsReady = false;
 bool readyToReceiveProtocolCommand = true;
 
-char protocolCommandString[PROTOCOL_REQUEST_LENGTH + 1];
+char protocolCommandString[2 * PROTOCOL_REQUEST_LENGTH];
 char* protocolCommand;
 int protocolCommandArgument;
 char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
@@ -158,16 +252,25 @@ State waitForCommandState()
 
     /* Parse command argument */
     protocolCommand += PROTOCOL_DEVICE_CODE_LENGTH;
-
-    for (int i = 0; i++; i < strlen(protocolCommand))
+   
+    /* Search for null argument or invalid characters */
+    bool validArgument = true;
+    for (int i = 0; i < strlen(protocolCommand); i++)
     {
         if (protocolCommand[i] < '0' || protocolCommand[i] > '9')
         {
-            deviceStateMachine.Set(waitForCommandState);
-            readyToReceiveProtocolCommand = true;
-            return;
+            validArgument = false;
         }
     }
+    if (strlen(protocolCommand) == 0) validArgument = false;
+
+    if (!validArgument)
+    {
+        deviceStateMachine.Set(waitForCommandState);
+        readyToReceiveProtocolCommand = true;
+        return;
+    }
+
     protocolCommandArgument = atoi(protocolCommand);    
 
     #ifdef DEBUG
@@ -282,6 +385,38 @@ State lightSensorState()
     deviceStateMachine.Set(sendValueState);
 }
 
+State buzzerState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Buzzer State");
+    #endif
+   
+    if (protocolCommandArgument == 0) noTone(BUZZER_PIN);
+    else tone(BUZZER_PIN, protocolCommandArgument);
+
+    deviceStateMachine.Set(waitForCommandState);
+}
+
+State playMelodyState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Play Melody State");
+    #endif
+
+    deviceStateMachine.Set(waitForCommandState);
+
+    if (protocolCommandArgument == MARIO_THEME_SONG)
+    {
+        playMelody(MARIO_THEME_SONG_MELODY, MARIO_THEME_SONG_TEMPO, MARIO_THEME_SONG_SIZE);
+    }
+    else if (protocolCommandArgument == CHRISTMAS_SONG_CODE)
+    {
+        playMelody(CHRISTMAS_THEME_SONG_MELODY, CHRISTMAS_THEME_SONG_TEMPO, CHRISTMAS_THEME_SONG_SIZE);
+        playMelody(CHRISTMAS_THEME_SONG_MELODY, CHRISTMAS_THEME_SONG_TEMPO, CHRISTMAS_THEME_SONG_SIZE);
+    }
+    else return;
+}
+
 /****************************************************************
  * Protocol state machine functions                             *
  ****************************************************************/
@@ -315,7 +450,9 @@ State waitForStartState()
                 Serial.println("Debug Protocol State Machine: Wait For Start State => '#'");
             #endif
 
-            strcpy(protocolCommandString, "");
+            /* Reset protocol command string */
+            sprintf(protocolCommandString, "");
+
             protocolCommand = protocolCommandString;
             protocolStateMachine.Set(receiveCharState);
         }
@@ -340,9 +477,22 @@ State receiveCharState()
             Serial.print("Debug Protocol State Machine: Receive Char State => '");
             Serial.print(receivedChar);
             Serial.println("'");
+            Serial.print("Debug Protocol State Machine: Current length of protocol command string is ");
+            Serial.println(strlen(protocolCommandString));
         #endif
 
-        if (receivedChar == '\n' || receivedChar == '\r' || strlen(protocolCommand) > 5)
+        /* Received command string is too long */
+        if (strlen(protocolCommandString) > PROTOCOL_REQUEST_LENGTH)
+        {
+            protocolStateMachine.Set(sleepState);
+            
+            #ifdef DEBUG
+                Serial.println("Debug: Failed to receive command (command string is too long)");
+            #endif
+            return;
+        }
+
+        if (receivedChar == '\n' || receivedChar == '\r')
         {
             /* End of protocol command detected */
             *protocolCommand = '\0';
@@ -365,5 +515,30 @@ State receiveCharState()
             protocolCommand++;
             protocolStateMachine.Set(receiveCharState);
         }
+    }
+}
+
+/****************************************************************
+ * Function Implementations                                     *
+ ****************************************************************/
+
+void playMelody(int melody[], int tempo[], int melodySize)
+{
+    for (int thisNote = 0; thisNote < melodySize; thisNote++) 
+    {
+         
+        /* To calculate the note duration, take one second divided by the note type
+           e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc. */
+        int noteDuration = 1000 / tempo[thisNote];
+        
+        tone(BUZZER_PIN, melody[thisNote], noteDuration);
+         
+        /* To distinguish the notes, set a minimum time between them
+           The note's duration + 30% seems to work well */
+        int pauseBetweenNotes = noteDuration * 1.30;
+        delay(pauseBetweenNotes);
+         
+        /* Stop the tone playing */
+        noTone(BUZZER_PIN);
     }
 }
