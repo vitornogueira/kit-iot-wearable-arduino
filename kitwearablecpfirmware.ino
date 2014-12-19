@@ -1,5 +1,10 @@
 /****************************************************************
  ***********************KIT WEARABLE - CP *********************** 
+ ****************************************************************
+ * Author:  Henrique Carvalho Silva *****************************
+ * Email:   henrique@devtecnologia.com **************************
+ * Company: DEV TEcnologia **************************************
+ ****************************************************************
  ****************************************************************/
 
 /****************************************************************
@@ -21,18 +26,18 @@
 const char BLUETOOTH_DEVICE_NAME[] = "wearable";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
 
-#define DEVICE_NUMBER     7
-#define NUMBER_OF_BUTTONS 2
+#define NUMBER_OF_DEVICES 8
 
 /* Pins */
-#define RED_RGB_LED_PIN              5
-#define GREEN_RGB_LED_PIN           13
-#define BLUE_RGB_LED_PIN             6
-#define ACCELEROMETER_INTERRUPT_PIN  7
-#define LIGHT_SENSOR_PIN            12
-#define BUZZER_PIN                  11
-#define BUTTON1_PIN                  4
-#define BUTTON2_PIN                 A1
+#define RED_RGB_LED_PIN                5
+#define GREEN_RGB_LED_PIN             13
+#define BLUE_RGB_LED_PIN               6
+#define ACCELEROMETER_INTERRUPT_PIN    7
+#define LIGHT_SENSOR_PIN             A11
+#define BUZZER_PIN                    11
+#define TEMPERATURE_SENSOR_PIN        A8
+#define BUTTON1_PIN                    4
+#define BUTTON2_PIN                   A1
 
 enum Device 
 {
@@ -41,6 +46,7 @@ enum Device
     GREEN_RGB_LED,
     BLUE_RGB_LED,
     LIGHT_SENSOR,
+    TEMPERATURE_SENSOR,
     BUZZER,
     PLAY_MELODY
 };
@@ -49,24 +55,26 @@ enum Device
 #define PROTOCOL_REQUEST_LENGTH     6
 #define PROTOCOL_DEVICE_CODE_LENGTH 2
 #define PROTOCOL_RESPONSE_LENGTH    7
-const char DEVICE_CODE[DEVICE_NUMBER][PROTOCOL_DEVICE_CODE_LENGTH + 1] = 
+const char DEVICE_CODE[NUMBER_OF_DEVICES][PROTOCOL_DEVICE_CODE_LENGTH + 1] = 
 {
     "AC", /* Accelerometer */
     "LR", /* Red RGB Led */
     "LG", /* Green RGB Led */
     "LB", /* Blue RGB Led */
     "LI", /* Light sensor */
+    "TE", /* Temperature Sensor */
     "BZ", /* Buzzer */
     "PM"  /* Play Mario Melody */
 };
 
-Pstate DEVICE_STATE[DEVICE_NUMBER + 3] = 
+Pstate DEVICE_STATE[NUMBER_OF_DEVICES + 3] = 
 {
     accelerometerState,
     redRgbLedState,
     greenRgbLedState,
     blueRgbLedState,
     lightSensorState,
+    temperatureSensorState,
     buzzerState,
     playMelodyState,
     waitForCommandState,  /* Must always come after device states */
@@ -223,6 +231,8 @@ void setup()
 
     pinMode(LIGHT_SENSOR_PIN, INPUT);
 
+    pinMode(TEMPERATURE_SENSOR_PIN, INPUT);
+
     pinMode(BUTTON1_PIN, INPUT_PULLUP);
     pinMode(BUTTON2_PIN, INPUT_PULLUP);
 }
@@ -255,7 +265,7 @@ State waitForCommandState()
         Serial.println("\"");
     #endif
 
-    for (int i = 0; i < DEVICE_NUMBER; i++)
+    for (int i = 0; i < NUMBER_OF_DEVICES; i++)
     {
         if (strcmp(deviceCode, DEVICE_CODE[i]) == 0)
         {
@@ -415,6 +425,17 @@ State lightSensorState()
     int lightSensorValue = analogRead(LIGHT_SENSOR_PIN);
     sprintf(protocolResponseValue, "#%4d\n\r", lightSensorValue);
 
+    deviceStateMachine.Set(sendValueState);
+}
+
+State temperatureSensorState()
+{
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Temperature Sensor State");
+    #endif
+
+    int temperatureSensorValue = (int) (10.0 * analogRead(TEMPERATURE_SENSOR_PIN) * 0.48875855);
+    sprintf(protocolResponseValue, "#%2d.%1d\n\r", temperatureSensorValue/10, temperatureSensorValue%10);
     deviceStateMachine.Set(sendValueState);
 }
 
