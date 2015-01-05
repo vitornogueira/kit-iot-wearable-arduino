@@ -23,8 +23,9 @@
 #define DEBUG_DEVICE_SM
 #define DEBUG_PROTOCOL_SM
 
-const char BLUETOOTH_DEVICE_NAME[] = "wearable";
+const char BLUETOOTH_DEVICE_NAME[] = "wearableV3_";
 const char BLUETOOTH_DEVICE_PIN[5] = "1234";
+const char BLUETOOTH_DEVICE_MAC_LAP[] = "08262439";
 
 #define NUMBER_OF_DEVICES 8
 
@@ -216,10 +217,10 @@ void setup()
     /* Setup HC-06 bluetooth module */
     Serial1.begin(9600);  /* HC-06 default */
     char atCommand[64];
-    sprintf(atCommand, "AT+NAME%s\n\r", BLUETOOTH_DEVICE_NAME);
+    sprintf(atCommand, "AT+NAME%s%s\r\n", BLUETOOTH_DEVICE_NAME, BLUETOOTH_DEVICE_MAC_LAP);
     Serial1.print(atCommand);
     delay(1100);
-    sprintf(atCommand, "AT+PIN%s\n\r", BLUETOOTH_DEVICE_PIN);
+    sprintf(atCommand, "AT+PIN%s\r\n", BLUETOOTH_DEVICE_PIN);
     Serial1.print(atCommand);
 
     /* Setup accelerometer */
@@ -325,13 +326,13 @@ State processButtonState()
     if (button1 != digitalRead(BUTTON1_PIN))
     {
         button1 = digitalRead(BUTTON1_PIN);
-        sprintf(protocolResponseValue, "#%s%2d\n\r", BUTTON1_CODE, !button1);
+        sprintf(protocolResponseValue, "#%s%2d\r\n", BUTTON1_CODE, !button1);
         deviceStateMachine.Set(sendValueState);
     }
     else if (button2 != digitalRead(BUTTON2_PIN))
     {
         button2 = digitalRead(BUTTON2_PIN);
-        sprintf(protocolResponseValue, "#%s%2d\n\r", BUTTON2_CODE, !button2);
+        sprintf(protocolResponseValue, "#%s%2d\r\n", BUTTON2_CODE, !button2);
         deviceStateMachine.Set(sendValueState);
     }
     else
@@ -355,15 +356,15 @@ State accelerometerState()
     switch(protocolCommandArgument)
     {
         case X_AXIS:
-            sprintf(protocolResponseValue, "#%4d\n\r", x);
+            sprintf(protocolResponseValue, "#%s%4d\r\n", DEVICE_CODE[0], x);
             break;
 
         case Y_AXIS:
-            sprintf(protocolResponseValue, "#%4d\n\r", y);
+            sprintf(protocolResponseValue, "#%s%4d\r\n", DEVICE_CODE[0], y);
             break;
 
         case Z_AXIS:
-            sprintf(protocolResponseValue, "#%4d\n\r", z);
+            sprintf(protocolResponseValue, "#%s%4d\r\n", DEVICE_CODE[0], z);
             break;
 
         default:
@@ -423,7 +424,7 @@ State lightSensorState()
     #endif
 
     int lightSensorValue = analogRead(LIGHT_SENSOR_PIN);
-    sprintf(protocolResponseValue, "#%4d\n\r", lightSensorValue);
+    sprintf(protocolResponseValue, "#%s%4d\r\n", DEVICE_CODE[4], lightSensorValue);
 
     deviceStateMachine.Set(sendValueState);
 }
@@ -435,7 +436,7 @@ State temperatureSensorState()
     #endif
 
     int temperatureSensorValue = (int) (10.0 * analogRead(TEMPERATURE_SENSOR_PIN) * 0.48875855);
-    sprintf(protocolResponseValue, "#%2d.%1d\n\r", temperatureSensorValue/10, temperatureSensorValue%10);
+    sprintf(protocolResponseValue, "#%s%2d.%1d\r\n", DEVICE_CODE[5], temperatureSensorValue/10, temperatureSensorValue%10);
     deviceStateMachine.Set(sendValueState);
 }
 
