@@ -14,20 +14,19 @@
 #include <SM.h>
 #include <Wire.h>
 #include <MMA7660.h>
+#include <avr/pgmspace.h>
 
 /****************************************************************
  * Constants and pins                                           *
  ****************************************************************/
 
 #define DEBUG
-#define DEBUG_DEVICE_SM
+//#define DEBUG_DEVICE_SM
 #define DEBUG_PROTOCOL_SM
 
-const char BLUETOOTH_DEVICE_NAME[] = "wearableV3_";
-const char BLUETOOTH_DEVICE_PIN[5] = "1234";
-const char BLUETOOTH_DEVICE_MAC_LAP[] = "08262439";
+const char BLUETOOTH_DEVICE_NAME[5] = "wV3_";
 
-#define NUMBER_OF_DEVICES 8
+#define NUMBER_OF_DEVICES 9
 
 /* Pins */
 #define RED_RGB_LED_PIN                5
@@ -49,11 +48,12 @@ enum Device
     LIGHT_SENSOR,
     TEMPERATURE_SENSOR,
     BUZZER,
-    PLAY_MELODY
+    PLAY_MELODY,
+    BLUETOOTH_PIN
 };
 
 /* Device ID code for the bluetooth protocol */
-#define PROTOCOL_REQUEST_LENGTH     6
+#define PROTOCOL_REQUEST_LENGTH     8
 #define PROTOCOL_DEVICE_CODE_LENGTH 2
 #define PROTOCOL_RESPONSE_LENGTH    7
 const char DEVICE_CODE[NUMBER_OF_DEVICES][PROTOCOL_DEVICE_CODE_LENGTH + 1] = 
@@ -65,7 +65,8 @@ const char DEVICE_CODE[NUMBER_OF_DEVICES][PROTOCOL_DEVICE_CODE_LENGTH + 1] =
     "LI", /* Light sensor */
     "TE", /* Temperature Sensor */
     "BZ", /* Buzzer */
-    "PM"  /* Play Mario Melody */
+    "PM", /* Play Mario Melody */
+    "PI"  /* Set Bluetooth PIN */
 };
 
 Pstate DEVICE_STATE[NUMBER_OF_DEVICES + 3] = 
@@ -78,9 +79,10 @@ Pstate DEVICE_STATE[NUMBER_OF_DEVICES + 3] =
     temperatureSensorState,
     buzzerState,
     playMelodyState,
+    setPinState,
     waitForCommandState,  /* Must always come after device states */
     sendValueState,
-    processButtonState
+    processButtonState,
 };
 
 const char BUTTON1_CODE[] = "B1"; /* Button 1 */
@@ -104,7 +106,7 @@ const char BUTTON2_CODE[] = "B2"; /* Button 2 */
  * Melodies                                                     *
  ****************************************************************/
 
-int MARIO_THEME_SONG_MELODY[] = 
+PROGMEM const uint16_t MARIO_THEME_SONG_MELODY[] = 
 {
       2637, 2637, 0, 2637,
       0, 2093, 2637, 0,
@@ -132,7 +134,7 @@ int MARIO_THEME_SONG_MELODY[] =
       2349, 1976, 0, 0
 };
 int MARIO_THEME_SONG_SIZE = 78;
-int MARIO_THEME_SONG_TEMPO[] = 
+PROGMEM const uint16_t MARIO_THEME_SONG_TEMPO[] = 
 {
       12, 12, 12, 12,
       12, 12, 12, 12,
@@ -160,7 +162,7 @@ int MARIO_THEME_SONG_TEMPO[] =
       12, 12, 12, 12
 };
 
-int CHRISTMAS_THEME_SONG_MELODY[] =
+PROGMEM const uint16_t CHRISTMAS_THEME_SONG_MELODY[] =
 {
       147, 247, 220, 196, 
       147, 147, 147, 147, 
@@ -170,7 +172,7 @@ int CHRISTMAS_THEME_SONG_MELODY[] =
       294, 262, 220, 247
 };
 int CHRISTMAS_THEME_SONG_SIZE = 24;
-int CHRISTMAS_THEME_SONG_TEMPO[] =
+PROGMEM const uint16_t CHRISTMAS_THEME_SONG_TEMPO[] =
 {
       4, 4, 4, 4, 
       3, 8, 8, 4, 
@@ -184,7 +186,9 @@ int CHRISTMAS_THEME_SONG_TEMPO[] =
  * Function Prototypes                                          *
  ****************************************************************/
 
-void playMelody(int melody[], int tempo[], int melodySize);
+void playMelody(PROGMEM const uint16_t melody[], PROGMEM const uint16_t tempo[], int melodySize);
+void getBluetoothLapAddress(char* lapAddress, bool ble);
+void setBluetoothPin(long pinNumber, bool ble);
 
 /****************************************************************
  * Global variables                                             *
@@ -193,12 +197,14 @@ void playMelody(int melody[], int tempo[], int melodySize);
 SM deviceStateMachine(waitForCommandState);
 SM protocolStateMachine(sleepState);
 
+byte bluetoothPin;
+
 bool protocolCommandIsReady = false;
 bool readyToReceiveProtocolCommand = true;
 
 char protocolCommandString[2 * PROTOCOL_REQUEST_LENGTH];
 char* protocolCommand;
-int protocolCommandArgument;
+long protocolCommandArgument;
 char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
 
 int button1 = LOW;
@@ -211,17 +217,42 @@ int button2 = LOW;
 void setup()
 {
     #ifdef DEBUG
+        delay(5000);
         Serial.begin(9600);
+        Serial.println("Kit Wearable - V3 - Campus Party");
     #endif
     
-    /* Setup HC-06 bluetooth module */
-    Serial1.begin(9600);  /* HC-06 default */
+    /* Setup HC-13 bluetooth module */
+    /* Note that HM-13 AT commands do not have \r\n terminating characters */
+    Serial1.begin(115200);  /* HM-13 default */
     char atCommand[64];
-    sprintf(atCommand, "AT+NAME%s%s\r\n", BLUETOOTH_DEVICE_NAME, BLUETOOTH_DEVICE_MAC_LAP);
+    char pin[7];
+    char bluetoothMacAddressLap[32];
+    Serial1.print("AT"); /* Get control over the bluetooth module */
+    delay(400);
+    /* Retrieve MAC ADDRESS for unique ID and set name and PIN for EDR mode */
+    getBluetoothLapAddress(bluetoothMacAddressLap, false);
+    sprintf(atCommand, "AT+NAME%s%s", BLUETOOTH_DEVICE_NAME, bluetoothMacAddressLap);
     Serial1.print(atCommand);
-    delay(1100);
-    sprintf(atCommand, "AT+PIN%s\r\n", BLUETOOTH_DEVICE_PIN);
+    delay(400);
+    for (int i = 0; i < 5; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 4]; /* Shift MAC address */
+    setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), false);
+    /* Retrieve MAC ADDRESS for unique ID and set name and PIN for BLE mode */
+    getBluetoothLapAddress(bluetoothMacAddressLap, true);
+    sprintf(atCommand, "AT+NAMB%s%s", BLUETOOTH_DEVICE_NAME, bluetoothMacAddressLap);
     Serial1.print(atCommand);
+    delay(400);
+    for (int i = 0; i < 7; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 2]; /* Shift MAC address */
+    setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), true);
+    /* Allow only one connection at a time */
+    Serial1.print("AT+DUAL1");
+    delay(400);
+    /* Require authentication when connecting */
+    Serial1.print("AT+AUTH1");
+    delay(400);
+    /* Reset device so that the changes will have effect */
+    Serial1.print("AT+RESET");
+    delay(400);
 
     /* Setup accelerometer */
     MMA7660.init();
@@ -295,7 +326,7 @@ State waitForCommandState()
         return;
     }
 
-    protocolCommandArgument = atoi(protocolCommand);    
+    protocolCommandArgument = atol(protocolCommand);
 
     #ifdef DEBUG
         Serial.print("Debug: Parsed Command Argument \"");
@@ -472,6 +503,28 @@ State playMelodyState()
     else return;
 }
 
+State setPinState()
+{
+    char pin[7];
+    char atCommand[64];
+
+    #ifdef DEBUG_DEVICE_SM
+        Serial.println("Debug Device State Machine: Set PIN State");
+    #endif
+
+    Serial1.print("AT");
+    delay(400);
+
+    setBluetoothPin(protocolCommandArgument, false);
+
+    setBluetoothPin(protocolCommandArgument, true);
+
+    Serial1.print("AT+RESET");
+    delay(400);
+
+    deviceStateMachine.Set(waitForCommandState);
+}
+
 /****************************************************************
  * Protocol state machine functions                             *
  ****************************************************************/
@@ -577,16 +630,17 @@ State receiveCharState()
  * Function Implementations                                     *
  ****************************************************************/
 
-void playMelody(int melody[], int tempo[], int melodySize)
+void playMelody(PROGMEM const uint16_t melody[], PROGMEM const uint16_t tempo[], int melodySize)
 {
     for (int thisNote = 0; thisNote < melodySize; thisNote++) 
     {
          
         /* To calculate the note duration, take one second divided by the note type
            e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc. */
-        int noteDuration = 1000 / tempo[thisNote];
+        unsigned int noteDuration = 1000 / tempo[thisNote];
+        unsigned int playedNote = pgm_read_word_near(melody + thisNote);
         
-        tone(BUZZER_PIN, melody[thisNote], noteDuration);
+        tone(BUZZER_PIN, playedNote, noteDuration);
          
         /* To distinguish the notes, set a minimum time between them
            The note's duration + 30% seems to work well */
@@ -596,4 +650,74 @@ void playMelody(int melody[], int tempo[], int melodySize)
         /* Stop the tone playing */
         noTone(BUZZER_PIN);
     }
+}
+
+void getBluetoothLapAddress(char* lapAddress, bool ble)
+{
+    bool foundAddressStart = false;
+    char readByte;
+    int byteCounter = 0;
+
+    if (!ble)
+        Serial1.print("AT+ADDE?");
+    else
+        Serial1.print("AT+ADDB?");
+    delay(400);
+
+    /* Wait until a get response arrives */
+    while (Serial1.available())
+    {
+        if (Serial1.read() == 'G')
+            break;
+    }
+
+    /* Get MAC address */
+    while (Serial1.available())
+    {
+        readByte = Serial1.read();
+        if (foundAddressStart)
+        {
+            lapAddress[byteCounter] = readByte;
+            byteCounter++;
+            if (byteCounter > 11)
+            {
+                lapAddress[12] = '\0';
+                break;
+            }
+        }
+        
+        if (readByte == ':')
+            foundAddressStart = true;
+    }
+
+    /* Exclude the first 4 digits */
+    for (int i = 0; i < 8; i++) 
+        lapAddress[i] = lapAddress[i + 4];
+    lapAddress[8] = '\0';
+}
+
+void setBluetoothPin(long pinNumber, bool ble)
+{
+    char atCommand[64];
+    char debugString[64];
+    char pin[7];
+
+    if (!ble)
+    {
+        sprintf(pin, "%04ld", pinNumber - 10000 * (pinNumber / 10000));
+        sprintf(atCommand, "AT+PINE%s", pin);
+        sprintf(debugString, "New EDR PIN set: %s", pin);
+    }
+    else
+    {
+        sprintf(pin, "%06ld", pinNumber - 1000000 * (pinNumber / 1000000));
+        sprintf(atCommand, "AT+PINB%s", pin);
+        sprintf(debugString,"New BLE PIN set: %s" , pin);
+    }
+
+    Serial1.print(atCommand);
+    delay(400);
+    #ifdef DEBUG
+        Serial.println(debugString);
+    #endif
 }
