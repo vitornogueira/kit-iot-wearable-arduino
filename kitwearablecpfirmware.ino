@@ -99,14 +99,15 @@ const char BUTTON2_CODE[] = "B2"; /* Button 2 */
 
 #define MELODY_MAX_SIZE      100
 /* Melody codes */
-#define MARIO_THEME_SONG    6789
-#define CHRISTMAS_SONG_CODE 1234
+#define MARIO_THEME_SONG         6789
+#define CHRISTMAS_SONG_CODE      1234
+#define IMPERIAL_MARCH_SONG_CODE  456
 
 /****************************************************************
  * Melodies                                                     *
  ****************************************************************/
 
-PROGMEM const uint16_t MARIO_THEME_SONG_MELODY[] = 
+PROGMEM const int MARIO_THEME_SONG_MELODY[] = 
 {
       2637, 2637, 0, 2637,
       0, 2093, 2637, 0,
@@ -134,7 +135,7 @@ PROGMEM const uint16_t MARIO_THEME_SONG_MELODY[] =
       2349, 1976, 0, 0
 };
 int MARIO_THEME_SONG_SIZE = 78;
-PROGMEM const uint16_t MARIO_THEME_SONG_TEMPO[] = 
+PROGMEM const int MARIO_THEME_SONG_TEMPO[] = 
 {
       12, 12, 12, 12,
       12, 12, 12, 12,
@@ -162,7 +163,7 @@ PROGMEM const uint16_t MARIO_THEME_SONG_TEMPO[] =
       12, 12, 12, 12
 };
 
-PROGMEM const uint16_t CHRISTMAS_THEME_SONG_MELODY[] =
+PROGMEM const int CHRISTMAS_THEME_SONG_MELODY[] =
 {
       147, 247, 220, 196, 
       147, 147, 147, 147, 
@@ -172,7 +173,7 @@ PROGMEM const uint16_t CHRISTMAS_THEME_SONG_MELODY[] =
       294, 262, 220, 247
 };
 int CHRISTMAS_THEME_SONG_SIZE = 24;
-PROGMEM const uint16_t CHRISTMAS_THEME_SONG_TEMPO[] =
+PROGMEM const int CHRISTMAS_THEME_SONG_TEMPO[] =
 {
       4, 4, 4, 4, 
       3, 8, 8, 4, 
@@ -182,11 +183,25 @@ PROGMEM const uint16_t CHRISTMAS_THEME_SONG_TEMPO[] =
       4, 4, 4, 1
 };
 
+PROGMEM const int IMPERIAL_MARCH_SONG_MELODY[] = {440, 440, 440, 349, 
+                                                  523, 440, 349, 523, 
+                                                  440, 659, 659, 659, 
+                                                  698, 523, 440, 349, 
+                                                  523, 440
+};
+int IMPERIAL_MARCH_SONG_SIZE = 18;
+PROGMEM const int IMPERIAL_MARCH_SONG_TEMPO[] = { 4, 4, 4, 5, 
+                                                 16, 4, 5, 16, 
+                                                  2, 4, 4, 4, 
+                                                  5, 16, 4, 5, 
+                                                 16, 2
+};
+
 /****************************************************************
  * Function Prototypes                                          *
  ****************************************************************/
 
-void playMelody(PROGMEM const uint16_t melody[], PROGMEM const uint16_t tempo[], int melodySize);
+void playMelody(PROGMEM const int melody[], PROGMEM const int tempo[], int melodySize);
 void getBluetoothLapAddress(char* lapAddress, bool ble);
 void setBluetoothPin(long pinNumber, bool ble);
 
@@ -219,7 +234,7 @@ void setup()
     #ifdef DEBUG
         delay(5000);
         Serial.begin(9600);
-        Serial.println("Kit Wearable - V3 - Campus Party");
+        Serial.println(F("Kit Wearable - V3 - Campus Party"));
     #endif
     
     /* Setup HC-13 bluetooth module */
@@ -292,7 +307,7 @@ State waitForCommandState()
     deviceCode[PROTOCOL_DEVICE_CODE_LENGTH] = '\0';
 
     #ifdef DEBUG
-        Serial.print("Debug: Parsed Command Device Code \"");
+        Serial.print(F("Debug: Parsed Command Device Code \""));
         Serial.print(deviceCode);
         Serial.println("\"");
     #endif
@@ -329,7 +344,7 @@ State waitForCommandState()
     protocolCommandArgument = atol(protocolCommand);
 
     #ifdef DEBUG
-        Serial.print("Debug: Parsed Command Argument \"");
+        Serial.print(F("Debug: Parsed Command Argument \""));
         Serial.print(protocolCommandArgument);
         Serial.println("\"");
     #endif
@@ -341,10 +356,10 @@ State waitForCommandState()
 State sendValueState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Send Value State");
+        Serial.println(F("Debug Device State Machine: Send Value State"));
     #endif
     #ifdef DEBUG
-        Serial.print("Debug: Sending value ");
+        Serial.print(F("Debug: Sending value "));
         Serial.print(protocolResponseValue);
     #endif
 
@@ -375,7 +390,7 @@ State processButtonState()
 State accelerometerState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Accelerometer State");
+        Serial.println(F("Debug Device State Machine: Accelerometer State"));
     #endif
 
     int x, y, z;
@@ -409,7 +424,7 @@ State accelerometerState()
 State redRgbLedState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Red RGB LED State");
+        Serial.println(F("Debug Device State Machine: Red RGB LED State"));
     #endif
 
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
@@ -423,7 +438,7 @@ State redRgbLedState()
 State greenRgbLedState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Green RGB LED State");
+        Serial.println(F("Debug Device State Machine: Green RGB LED State"));
     #endif
     
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
@@ -437,7 +452,7 @@ State greenRgbLedState()
 State blueRgbLedState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Blue RGB LED State");
+        Serial.println(F("Debug Device State Machine: Blue RGB LED State"));
     #endif
     
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
@@ -451,7 +466,7 @@ State blueRgbLedState()
 State lightSensorState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Light Sensor State");
+        Serial.println(F("Debug Device State Machine: Light Sensor State"));
     #endif
 
     int lightSensorValue = analogRead(LIGHT_SENSOR_PIN);
@@ -463,7 +478,7 @@ State lightSensorState()
 State temperatureSensorState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Temperature Sensor State");
+        Serial.println(F("Debug Device State Machine: Temperature Sensor State"));
     #endif
 
     int temperatureSensorValue = (int) (10.0 * analogRead(TEMPERATURE_SENSOR_PIN) * 0.48875855);
@@ -474,7 +489,7 @@ State temperatureSensorState()
 State buzzerState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Buzzer State");
+        Serial.println(F("Debug Device State Machine: Buzzer State"));
     #endif
    
     if (protocolCommandArgument == 0) noTone(BUZZER_PIN);
@@ -486,7 +501,7 @@ State buzzerState()
 State playMelodyState()
 {
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Play Melody State");
+        Serial.println(F("Debug Device State Machine: Play Melody State"));
     #endif
 
     deviceStateMachine.Set(waitForCommandState);
@@ -500,6 +515,10 @@ State playMelodyState()
         playMelody(CHRISTMAS_THEME_SONG_MELODY, CHRISTMAS_THEME_SONG_TEMPO, CHRISTMAS_THEME_SONG_SIZE);
         playMelody(CHRISTMAS_THEME_SONG_MELODY, CHRISTMAS_THEME_SONG_TEMPO, CHRISTMAS_THEME_SONG_SIZE);
     }
+    else if (protocolCommandArgument == IMPERIAL_MARCH_SONG_CODE)
+    {
+        playMelody(IMPERIAL_MARCH_SONG_MELODY, IMPERIAL_MARCH_SONG_TEMPO, IMPERIAL_MARCH_SONG_SIZE);
+    }
     else return;
 }
 
@@ -509,7 +528,7 @@ State setPinState()
     char atCommand[64];
 
     #ifdef DEBUG_DEVICE_SM
-        Serial.println("Debug Device State Machine: Set PIN State");
+        Serial.println(F("Debug Device State Machine: Set PIN State"));
     #endif
 
     Serial1.print("AT");
@@ -555,7 +574,7 @@ State waitForStartState()
         {
             /* Start of protocol command detetcted */
             #ifdef DEBUG_PROTOCOL_SM
-                Serial.println("Debug Protocol State Machine: Wait For Start State => '#'");
+                Serial.println(F("Debug Protocol State Machine: Wait For Start State => '#'"));
             #endif
 
             /* Reset protocol command string */
@@ -582,7 +601,7 @@ State receiveCharState()
         char receivedChar = Serial1.read();
 
         #ifdef DEBUG_PROTOCOL_SM
-            Serial.print("Debug Protocol State Machine: Receive Char State => '");
+            Serial.print(F("Debug Protocol State Machine: Receive Char State => '"));
             Serial.print(receivedChar);
             Serial.println("'");
             Serial.print("Debug Protocol State Machine: Current length of protocol command string is ");
@@ -595,7 +614,7 @@ State receiveCharState()
             protocolStateMachine.Set(sleepState);
             
             #ifdef DEBUG
-                Serial.println("Debug: Failed to receive command (command string is too long)");
+                Serial.println(F("Debug: Failed to receive command (command string is too long)"));
             #endif
             return;
         }
@@ -610,7 +629,7 @@ State receiveCharState()
             protocolStateMachine.Set(sleepState);
             
             #ifdef DEBUG
-                Serial.print("Debug: Received command \"#");
+                Serial.print(F("Debug: Received command \"#"));
                 Serial.print(protocolCommand);
                 Serial.println("\"");
             #endif
@@ -630,14 +649,14 @@ State receiveCharState()
  * Function Implementations                                     *
  ****************************************************************/
 
-void playMelody(PROGMEM const uint16_t melody[], PROGMEM const uint16_t tempo[], int melodySize)
+void playMelody(PROGMEM const int melody[], PROGMEM const int tempo[], int melodySize)
 {
     for (int thisNote = 0; thisNote < melodySize; thisNote++) 
     {
          
         /* To calculate the note duration, take one second divided by the note type
            e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc. */
-        unsigned int noteDuration = 1000 / tempo[thisNote];
+        unsigned int noteDuration = 1000 / pgm_read_word_near(tempo + thisNote);
         unsigned int playedNote = pgm_read_word_near(melody + thisNote);
         
         tone(BUZZER_PIN, playedNote, noteDuration);
