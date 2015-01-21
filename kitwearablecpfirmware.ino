@@ -15,16 +15,21 @@
 #include <Wire.h>
 #include <MMA7660.h>
 #include <avr/pgmspace.h>
+#include <EEPROMex.h>
 
 /****************************************************************
  * Constants and pins                                           *
  ****************************************************************/
 
 #define DEBUG
-//#define DEBUG_DEVICE_SM
+#define DEBUG_DEVICE_SM
 #define DEBUG_PROTOCOL_SM
 
+#define USE_GENERAL_DEFAULT_BLUETOOTH_PIN
+
 const char BLUETOOTH_DEVICE_NAME[5] = "wV3_";
+const long BLUETOOTH_DEFAULT_EDR_PIN = 1234;
+const long BLUETOOTH_DEFAULT_BLE_PIN = 123456;
 
 #define NUMBER_OF_DEVICES 9
 
@@ -38,6 +43,13 @@ const char BLUETOOTH_DEVICE_NAME[5] = "wV3_";
 #define TEMPERATURE_SENSOR_PIN        A8
 #define BUTTON1_PIN                    4
 #define BUTTON2_PIN                   A1
+
+/* EEPROM Addresses */
+#define BLUETOOTH_PIN_EEPROM_ADDRESS   0
+#define EEPROM_MAGIC_NUMBER_ADDRESS    4
+#define EEPROM_MAGIC_NUMBER           93
+
+const unsigned long PROTOCOL_TIMEOUT = 8000;
 
 enum Device 
 {
@@ -225,6 +237,8 @@ char protocolResponseValue[PROTOCOL_RESPONSE_LENGTH + 1];
 int button1 = LOW;
 int button2 = LOW;
 
+unsigned long protocolWatchdog = 0;
+
 /****************************************************************
  * Arduino main functions                                       *
  ****************************************************************/
@@ -250,15 +264,35 @@ void setup()
     sprintf(atCommand, "AT+NAME%s%s", BLUETOOTH_DEVICE_NAME, bluetoothMacAddressLap);
     Serial1.print(atCommand);
     delay(400);
-    for (int i = 0; i < 5; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 4]; /* Shift MAC address */
-    setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), false);
+    if (EEPROM.read(EEPROM_MAGIC_NUMBER_ADDRESS) != EEPROM_MAGIC_NUMBER)
+    {
+        for (int i = 0; i < 5; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 4]; /* Shift MAC address */
+        setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), false);
+        #ifdef USE_GENERAL_DEFAULT_BLUETOOTH_PIN
+            setBluetoothPin(BLUETOOTH_DEFAULT_EDR_PIN, false);
+        #endif
+    }
+    else
+    {
+        setBluetoothPin(EEPROM.readLong(BLUETOOTH_PIN_EEPROM_ADDRESS), false);
+    }
     /* Retrieve MAC ADDRESS for unique ID and set name and PIN for BLE mode */
     getBluetoothLapAddress(bluetoothMacAddressLap, true);
     sprintf(atCommand, "AT+NAMB%s%s", BLUETOOTH_DEVICE_NAME, bluetoothMacAddressLap);
     Serial1.print(atCommand);
     delay(400);
-    for (int i = 0; i < 7; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 2]; /* Shift MAC address */
-    setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), true);
+    if (EEPROM.read(EEPROM_MAGIC_NUMBER_ADDRESS) != EEPROM_MAGIC_NUMBER)
+    {
+        for (int i = 0; i < 7; i++) bluetoothMacAddressLap[i] = bluetoothMacAddressLap[i + 2]; /* Shift MAC address */
+        setBluetoothPin(strtol(bluetoothMacAddressLap, NULL, 16), true);
+        #ifdef USE_GENERAL_DEFAULT_BLUETOOTH_PIN
+            setBluetoothPin(BLUETOOTH_DEFAULT_BLE_PIN, true);
+        #endif
+    }
+    else
+    {
+        setBluetoothPin(EEPROM.readLong(BLUETOOTH_PIN_EEPROM_ADDRESS), false);
+    }
     /* Allow only one connection at a time */
     Serial1.print("AT+DUAL1");
     delay(400);
@@ -275,6 +309,11 @@ void setup()
     pinMode(RED_RGB_LED_PIN, OUTPUT);
     pinMode(GREEN_RGB_LED_PIN, OUTPUT);
     pinMode(BLUE_RGB_LED_PIN, OUTPUT);
+    /* RGB is initialized as off */
+    analogWrite(RED_RGB_LED_PIN, 255);
+    analogWrite(GREEN_RGB_LED_PIN, 255);
+    analogWrite(BLUE_RGB_LED_PIN, 255);
+
 
     pinMode(LIGHT_SENSOR_PIN, INPUT);
 
@@ -429,6 +468,7 @@ State redRgbLedState()
 
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
     {
+        protocolCommandArgument = MAX_RGB_VALUE - protocolCommandArgument;
         analogWrite(RED_RGB_LED_PIN, protocolCommandArgument);
     }
 
@@ -443,6 +483,7 @@ State greenRgbLedState()
     
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
     {
+        protocolCommandArgument = MAX_RGB_VALUE - protocolCommandArgument;
         analogWrite(GREEN_RGB_LED_PIN, protocolCommandArgument);
     }
     
@@ -457,6 +498,7 @@ State blueRgbLedState()
     
     if ((protocolCommandArgument >= MIN_RGB_VALUE) && (protocolCommandArgument <= MAX_RGB_VALUE))
     {
+        protocolCommandArgument = MAX_RGB_VALUE - protocolCommandArgument;
         analogWrite(BLUE_RGB_LED_PIN, protocolCommandArgument);
     }
     
@@ -538,9 +580,13 @@ State setPinState()
 
     setBluetoothPin(protocolCommandArgument, true);
 
+    EEPROM.writeLong(BLUETOOTH_PIN_EEPROM_ADDRESS, protocolCommandArgument);
+    EEPROM.write(EEPROM_MAGIC_NUMBER_ADDRESS, EEPROM_MAGIC_NUMBER);
+
     Serial1.print("AT+RESET");
     delay(400);
 
+    /* No use to send a confirmation message since bluetooth connection will be lost due to reset */
     deviceStateMachine.Set(waitForCommandState);
 }
 
@@ -581,6 +627,7 @@ State waitForStartState()
             sprintf(protocolCommandString, "");
 
             protocolCommand = protocolCommandString;
+            protocolWatchdog = millis();
             protocolStateMachine.Set(receiveCharState);
         }
         else
@@ -595,10 +642,20 @@ State receiveCharState()
     if (!Serial1.available())
     {
         protocolStateMachine.Set(receiveCharState);
+        if (millis() - protocolWatchdog > PROTOCOL_TIMEOUT)
+        {
+            /* Give up trying to receive this command if no character is received for too long */
+            protocolStateMachine.Set(waitForStartState);
+            #ifdef DEBUG_PROTOCOL_SM
+                Serial.println(F("Debug Protocol State Machine: Receive Char State => TIMEOUT!"));
+            #endif
+        }
     }
     else
     {
         char receivedChar = Serial1.read();
+
+        protocolWatchdog = millis();
 
         #ifdef DEBUG_PROTOCOL_SM
             Serial.print(F("Debug Protocol State Machine: Receive Char State => '"));
@@ -678,16 +735,19 @@ void getBluetoothLapAddress(char* lapAddress, bool ble)
     int byteCounter = 0;
 
     if (!ble)
+    {
         Serial1.print("AT+ADDE?");
+    }
     else
+    {
         Serial1.print("AT+ADDB?");
+    }
     delay(400);
 
     /* Wait until a get response arrives */
     while (Serial1.available())
     {
-        if (Serial1.read() == 'G')
-            break;
+        if (Serial1.read() == 'G') break;
     }
 
     /* Get MAC address */
@@ -705,8 +765,7 @@ void getBluetoothLapAddress(char* lapAddress, bool ble)
             }
         }
         
-        if (readByte == ':')
-            foundAddressStart = true;
+        if (readByte == ':') foundAddressStart = true;
     }
 
     /* Exclude the first 4 digits */
