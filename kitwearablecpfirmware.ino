@@ -523,7 +523,7 @@ State temperatureSensorState()
         Serial.println(F("Debug Device State Machine: Temperature Sensor State"));
     #endif
 
-    int temperatureSensorValue = (int) (10.0 * analogRead(TEMPERATURE_SENSOR_PIN) * 0.48875855);
+    int temperatureSensorValue = (int) (10.0 * (0.1704388801 * analogRead(TEMPERATURE_SENSOR_PIN) - 20.5128205128));
     sprintf(protocolResponseValue, "#%s%2d.%1d\r\n", DEVICE_CODE[5], temperatureSensorValue/10, temperatureSensorValue%10);
     deviceStateMachine.Set(sendValueState);
 }
