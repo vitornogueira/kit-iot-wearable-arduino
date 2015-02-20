@@ -17,6 +17,7 @@
 #include <EEPROMex.h>
 #include <SPI.h>
 
+
 /****************************************************************
  * Functionality enable flags                                   *
  ****************************************************************/
@@ -26,6 +27,7 @@
 //#define DEBUG_DEVICE_SM
 //#define DEBUG_PROTOCOL_SM
 #define ENABLE_BLUETOOTH_PROTOCOL
+
 
 /****************************************************************
  * Constants and pins                                           *
@@ -73,6 +75,7 @@ enum Device {
 #define PROTOCOL_REQUEST_LENGTH     8
 #define PROTOCOL_DEVICE_CODE_LENGTH 2
 #define PROTOCOL_RESPONSE_LENGTH    7
+
 const char DEVICE_CODE[NUMBER_OF_DEVICES][PROTOCOL_DEVICE_CODE_LENGTH + 1] = {
   "AC", /* Accelerometer */
   "LR", /* Red RGB Led */
@@ -117,102 +120,69 @@ const char BUTTON2_CODE[] = "B2"; /* Button 2 */
 #define MAX_RGB_VALUE 255
 
 #define MELODY_MAX_SIZE          100
+
 /* Melody codes */
 #define MARIO_THEME_SONG         6789
 #define CHRISTMAS_SONG_CODE      1234
-#define IMPERIAL_MARCH_SONG_CODE  456
+#define IMPERIAL_MARCH_SONG_CODE 4567
+
 
 /****************************************************************
  * Melodies                                                     *
  ****************************************************************/
 PROGMEM const int MARIO_THEME_SONG_MELODY[] = {
-  2637, 2637, 0, 2637,
-  0, 2093, 2637, 0,
-  3136, 0, 0,  0,
-  1568, 0, 0, 0,
-
-  2093, 0, 0, 1568,
-  0, 0, 1319, 0,
-  0, 1760, 0, 1976,
-  0, 1865, 1760, 0,
-
-  1568, 2637, 3136,
-  3520, 0, 2794, 3136,
-  0, 2637, 0, 2093,
-  2349, 1976, 0, 0,
-
-  2093, 0, 0, 1568,
-  0, 0, 1319, 0,
-  0, 1760, 0, 1976,
-  0, 1865, 1760, 0,
-
-  1568, 2637, 3136,
-  3520, 0, 2794, 3136,
-  0, 2637, 0, 2093,
-  2349, 1976, 0, 0
+  2637, 2637, 0, 2637, 0, 2093, 2637, 0,
+  3136, 0, 0,  0, 1568, 0, 0, 0,
+  2093, 0, 0, 1568, 0, 0, 1319, 0,
+  0, 1760, 0, 1976, 0, 1865, 1760, 0,
+  1568, 2637, 3136, 3520, 0, 2794, 3136,
+  0, 2637, 0, 2093, 2349, 1976, 0, 0,
+  2093, 0, 0, 1568, 0, 0, 1319, 0,
+  0, 1760, 0, 1976, 0, 1865, 1760, 0,
+  1568, 2637, 3136, 3520, 0, 2794, 3136,
+  0, 2637, 0, 2093, 2349, 1976, 0, 0
 };
 int MARIO_THEME_SONG_SIZE = 78;
-
 PROGMEM const int MARIO_THEME_SONG_TEMPO[] = {
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-
-  9, 9, 9,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-
-  9, 9, 9,
-  12, 12, 12, 12,
-  12, 12, 12, 12,
-  12, 12, 12, 12
+  12, 12, 12, 12, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  9, 9, 9, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12,
+  9, 9, 9, 12, 12, 12, 12,
+  12, 12, 12, 12, 12, 12, 12, 12
 };
+
 
 PROGMEM const int CHRISTMAS_THEME_SONG_MELODY[] = {
   147, 247, 220, 196,
   147, 147, 147, 147,
   247, 220, 196, 165,
+  
   0, 165, 262, 247,
   220, 185, 0, 294,
   294, 262, 220, 247
 };
 int CHRISTMAS_THEME_SONG_SIZE = 24;
-
 PROGMEM const int CHRISTMAS_THEME_SONG_TEMPO[] = {
-  4, 4, 4, 4,
-  3, 8, 8, 4,
-  4, 4, 4, 3,
-  2, 4, 4, 4,
-  4, 3, 2, 4,
-  4, 4, 4, 1
+  4, 4, 4, 4, 3, 8, 8, 4,
+  4, 4, 4, 3, 2, 4, 4, 4,
+  4, 3, 2, 4, 4, 4, 4, 1
 };
 
+
 PROGMEM const int IMPERIAL_MARCH_SONG_MELODY[] = {
-  440, 440, 440, 349,
-  523, 440, 349, 523,
-  440, 659, 659, 659,
-  698, 523, 440, 349,
+  440, 440, 440, 349, 523, 440, 349, 523,
+  440, 659, 659, 659, 698, 523, 440, 349,
   523, 440
 };
 int IMPERIAL_MARCH_SONG_SIZE = 18;
-
 PROGMEM const int IMPERIAL_MARCH_SONG_TEMPO[] = { 
-  4, 4, 4, 5,
-  16, 4, 5, 16,
-  2, 4, 4, 4,
-  5, 16, 4, 5,
+  4, 4, 4, 5, 16, 4, 5, 16,
+  2, 4, 4, 4, 5, 16, 4, 5,
   16, 2
 };
 
@@ -223,6 +193,7 @@ PROGMEM const int IMPERIAL_MARCH_SONG_TEMPO[] = {
 void playMelody(PROGMEM const int melody[], PROGMEM const int tempo[], int melodySize);
 void getBluetoothLapAddress(char* lapAddress, bool ble);
 void setBluetoothPin(long pinNumber, bool ble);
+
 
 /****************************************************************
  * Global variables                                             *
@@ -249,6 +220,7 @@ int button2 = LOW;
 
   unsigned long protocolWatchdog = 0;
 #endif
+
 
 /****************************************************************
  * Arduino main functions                                       *
@@ -331,9 +303,7 @@ void setup() {
   pinMode(BLUE_RGB_LED_PIN, OUTPUT);
   
   /* RGB is initialized as off */
-  analogWrite(RED_RGB_LED_PIN, 255);
-  analogWrite(GREEN_RGB_LED_PIN, 255);
-  analogWrite(BLUE_RGB_LED_PIN, 255);
+  turnOffLeds();
 
   pinMode(LIGHT_SENSOR_PIN, INPUT);
   pinMode(TEMPERATURE_SENSOR_PIN, INPUT);
@@ -352,6 +322,7 @@ void loop() {
   #endif
 }
 
+
 /****************************************************************
  * Device state machine functions                               *
  ****************************************************************/
@@ -362,6 +333,7 @@ State waitForCommandState() {
   if (protocolCommandIsReady) {
     /* Parse device code */
     char deviceCode[PROTOCOL_DEVICE_CODE_LENGTH + 1];
+    
     for (int i = 0; i < PROTOCOL_DEVICE_CODE_LENGTH; i++) {
       deviceCode[i] = protocolCommand[i];
     }
@@ -371,7 +343,9 @@ State waitForCommandState() {
     /* Only copy the received value to actionedDeviceCode if it is valid */
     for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
       if (strcmp(deviceCode, DEVICE_CODE[i]) == 0) {
-        for (int j = 0; j < PROTOCOL_DEVICE_CODE_LENGTH + 1; j++) actionedDeviceCode[j] = deviceCode[j];
+        for (int j = 0; j < PROTOCOL_DEVICE_CODE_LENGTH + 1; j++) {
+          actionedDeviceCode[j] = deviceCode[j];
+        }
       }
     }
 
@@ -423,6 +397,9 @@ State waitForCommandState() {
   return;
 }
 
+/*
+  State Send Value
+*/
 State sendValueState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Send Value State"));
@@ -446,6 +423,10 @@ State sendValueState() {
   }
 }
 
+
+/*
+  State Process Buttons
+*/
 State processButtonState() {
   if (button1 != digitalRead(BUTTON1_PIN)) {
     button1 = digitalRead(BUTTON1_PIN);
@@ -469,6 +450,10 @@ State processButtonState() {
   }
 }
 
+
+/*
+  State Accelerometer
+*/
 State accelerometerState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Accelerometer State"));
@@ -521,6 +506,10 @@ State accelerometerState() {
   deviceStateMachine.Set(sendValueState);
 }
 
+
+/*
+  State Red LED
+*/
 State redRgbLedState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Red RGB LED State"));
@@ -534,6 +523,10 @@ State redRgbLedState() {
   deviceStateMachine.Set(processButtonState);
 }
 
+
+/*
+  State Green Led
+*/
 State greenRgbLedState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Green RGB LED State"));
@@ -548,6 +541,10 @@ State greenRgbLedState() {
   deviceStateMachine.Set(processButtonState);
 }
 
+
+/*
+  State Blue Led
+*/
 State blueRgbLedState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Blue RGB LED State"));
@@ -561,18 +558,24 @@ State blueRgbLedState() {
   deviceStateMachine.Set(processButtonState);
 }
 
+
+/*
+  State Turn OFF Leds
+*/
 State rgbLedOffState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: RGB LED OFF State"));
   #endif
 
-  analogWrite(RED_RGB_LED_PIN, 255);
-  analogWrite(GREEN_RGB_LED_PIN, 255);
-  analogWrite(BLUE_RGB_LED_PIN, 255);
+  turnOffLeds();
 
   deviceStateMachine.Set(processButtonState);
 }
 
+
+/*
+  State Light sensor
+*/
 State lightSensorState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Light Sensor State"));
@@ -586,6 +589,10 @@ State lightSensorState() {
   #endif
 }
 
+
+/*
+  State Temperature sensor
+*/
 State temperatureSensorState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Temperature Sensor State"));
@@ -599,6 +606,10 @@ State temperatureSensorState() {
   #endif
 }
 
+
+/*
+  State Buzzer
+*/
 State buzzerState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Buzzer State"));
@@ -610,6 +621,10 @@ State buzzerState() {
   deviceStateMachine.Set(processButtonState);
 }
 
+
+/*
+  State Play Melody
+*/
 State playMelodyState() {
   #ifdef DEBUG_DEVICE_SM
     Serial.println(F("Debug Device State Machine: Play Melody State"));
@@ -632,6 +647,10 @@ State playMelodyState() {
   }
 }
 
+
+/*
+  State Set Pin
+*/
 State setPinState() {
   char pin[7];
 
@@ -659,6 +678,7 @@ State setPinState() {
   /* No use to send a confirmation message since bluetooth connection will be lost due to reset */
   deviceStateMachine.Set(processButtonState);
 }
+
 
 /****************************************************************
  * Protocol state machine functions                             *
@@ -761,6 +781,7 @@ State receiveCharState() {
 }
 #endif
 
+
 /****************************************************************
  * Function Implementations                                     *
  ****************************************************************/
@@ -782,6 +803,7 @@ void playMelody(PROGMEM const int melody[], PROGMEM const int tempo[], int melod
     noTone(BUZZER_PIN);
   }
 }
+
 
 void getBluetoothLapAddress(char* lapAddress, bool ble) {
   bool foundAddressStart = false;
@@ -829,6 +851,7 @@ void getBluetoothLapAddress(char* lapAddress, bool ble) {
   lapAddress[8] = '\0';
 }
 
+
 void setBluetoothPin(long pinNumber, bool ble) {
   char atCommand[16];
   char debugString[26];
@@ -851,4 +874,11 @@ void setBluetoothPin(long pinNumber, bool ble) {
   #ifdef DEBUG
     Serial.println(debugString);
   #endif
+}
+
+
+void turnOffLeds() {
+  analogWrite(RED_RGB_LED_PIN, 255);
+  analogWrite(GREEN_RGB_LED_PIN, 255);
+  analogWrite(BLUE_RGB_LED_PIN, 255);
 }
