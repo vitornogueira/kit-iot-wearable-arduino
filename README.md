@@ -9,7 +9,7 @@ Para fazer o upload do sketch siga os passos:
   * Inclua as bibliotecas da pasta **libraries** na IDE do Arduino
     * No menu superior da IDE vá em: **Sketch** > **Import Library** > **Add Library**
   * Selecione o tipo da placa como Arduino Leonardo
-    * No meni superior da IDE vá em: **Tools** > **Board** > **Arduino Leonardo**
+    * No menu superior da IDE vá em: **Tools** > **Board** > **Arduino Leonardo**
   * Clique no botão Upload
 
 ## Lista de comandos do Wearable
